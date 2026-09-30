@@ -1,0 +1,10 @@
+timestamp,rider_id,order_id,compliant,classes
+2026-09-26T21:09:13.941528+00:00,,,True,
+2026-09-26T21:09:39.751212+00:00,,,True,
+2026-09-26T21:10:36.450633+00:00,,,True,
+2026-09-26T21:10:40.472677+00:00,,,True,
+2026-09-26T21:14:26.452299+00:00,,,True,
+2026-09-26T21:16:23.261825+00:00,,,False,package_damaged
+2026-09-26T21:16:46.630861+00:00,,,True,package_ok
+2026-09-26T23:17:19.971282+00:00,undefined,undefined,False,package_damaged
+2026-09-26T23:18:41.954419+00:00,,,True,package_ok

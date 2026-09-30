@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkpoint — Delivery Verification</title>
+<style>
+  :root{
+    --asphalt: #14171c;
+    --panel: #1b1f26;
+    --panel-2: #20252d;
+    --line: #2c323c;
+    --text: #e8eaed;
+    --muted: #8a93a3;
+    --amber: #f5a623;
+    --amber-dim: #7a541c;
+    --pass: #4fd48c;
+    --fail: #ff5c5c;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--asphalt);
+    color:var(--text);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    min-height:100vh;
+  }
+  .grain{
+    position:fixed; inset:0; pointer-events:none; opacity:.03;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:22px 32px; border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex; align-items:center; gap:12px;}
+  .brand .mark{
+    width:34px; height:34px; border-radius:6px;
+    background:repeating-linear-gradient(45deg,var(--amber) 0 6px,#111 6px 12px);
+    flex-shrink:0;
+  }
+  .brand h1{font-size:17px; margin:0; letter-spacing:.2px;}
+  .brand p{margin:2px 0 0; font-size:12.5px; color:var(--muted);}
+  .status-pill{
+    font-size:12px; color:var(--muted); border:1px solid var(--line);
+    padding:6px 12px; border-radius:20px; display:flex; align-items:center; gap:7px;
+  }
+  .dot{width:7px; height:7px; border-radius:50%; background:var(--muted);}
+  .dot.live{background:var(--pass); box-shadow:0 0 8px var(--pass);}
+
+  main{
+    max-width:1080px; margin:0 auto; padding:36px 32px 80px;
+    display:grid; grid-template-columns:1fr; gap:20px;
+  }
+  @media(min-width:860px){
+    main{grid-template-columns:1.1fr .9fr;}
+  }
+
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:22px;
+  }
+  .panel h2{
+    font-size:13px; text-transform:uppercase; letter-spacing:1.2px;
+    color:var(--muted); margin:0 0 16px; font-weight:600;
+  }
+
+  .dropzone{
+    border:1.5px dashed var(--line); border-radius:8px;
+    padding:40px 20px; text-align:center; cursor:pointer;
+    transition:border-color .15s, background .15s;
+    position:relative; overflow:hidden;
+  }
+  .dropzone:hover, .dropzone.drag{border-color:var(--amber); background:var(--panel-2);}
+  .dropzone input{display:none;}
+  .dropzone .icon{font-size:26px; margin-bottom:10px; opacity:.7;}
+  .dropzone .hint{font-size:12.5px; color:var(--muted); margin-top:6px;}
+
+  .preview-wrap{position:relative; margin-top:18px; border-radius:8px; overflow:hidden; display:none;}
+  .preview-wrap.show{display:block;}
+  .preview-wrap img{width:100%; display:block;}
+  .preview-wrap canvas{position:absolute; top:0; left:0; width:100%; height:100%;}
+
+  .fields{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px;}
+  .field label{display:block; font-size:11.5px; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:.6px;}
+  .field input{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    padding:9px 10px; border-radius:6px; font-size:13.5px; font-family:inherit;
+  }
+  .field input:focus{outline:none; border-color:var(--amber);}
+  .field.full{grid-column:1/-1;}
+
+  .run-btn{
+    margin-top:16px; width:100%; padding:13px; border:none; border-radius:7px;
+    background:var(--amber); color:#1a1200; font-weight:700; font-size:14px;
+    letter-spacing:.3px; cursor:pointer; transition:filter .15s, transform .1s;
+  }
+  .run-btn:hover{filter:brightness(1.08);}
+  .run-btn:active{transform:scale(.99);}
+  .run-btn:disabled{background:var(--amber-dim); color:#8a7451; cursor:not-allowed;}
+
+  .verdict{
+    display:flex; align-items:center; gap:14px; padding:16px; border-radius:8px;
+    margin-bottom:16px; border:1px solid var(--line);
+  }
+  .verdict.pass{border-color:rgba(79,212,140,.4); background:rgba(79,212,140,.06);}
+  .verdict.fail{border-color:rgba(255,92,92,.4); background:rgba(255,92,92,.06);}
+  .verdict .badge{
+    width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:18px; flex-shrink:0;
+  }
+  .verdict.pass .badge{background:rgba(79,212,140,.15); color:var(--pass);}
+  .verdict.fail .badge{background:rgba(255,92,92,.15); color:var(--fail);}
+  .verdict .label{font-size:15px; font-weight:700;}
+  .verdict .sub{font-size:12.5px; color:var(--muted); margin-top:2px;}
+
+  .det-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 0; border-bottom:1px solid var(--line); font-size:13.5px;
+  }
+  .det-row:last-child{border-bottom:none;}
+  .det-row .cls{display:flex; align-items:center; gap:8px;}
+  .det-row .swatch{width:10px; height:10px; border-radius:2px;}
+  .det-row .conf{color:var(--muted); font-variant-numeric:tabular-nums; font-size:12.5px;}
+
+  .empty{color:var(--muted); font-size:13.5px; line-height:1.6; text-align:center; padding:30px 10px;}
+
+  table.hist{width:100%; border-collapse:collapse; font-size:12.5px;}
+  table.hist th{
+    text-align:left; color:var(--muted); font-weight:600; font-size:11px;
+    text-transform:uppercase; letter-spacing:.6px; padding:8px 10px; border-bottom:1px solid var(--line);
+  }
+  table.hist td{padding:9px 10px; border-bottom:1px solid var(--line); color:var(--text);}
+  table.hist tr:last-child td{border-bottom:none;}
+  .tag{padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600;}
+  .tag.pass{background:rgba(79,212,140,.15); color:var(--pass);}
+  .tag.fail{background:rgba(255,92,92,.15); color:var(--fail);}
+  .refresh-btn{
+    background:none; border:1px solid var(--line); color:var(--muted); font-size:11.5px;
+    padding:6px 12px; border-radius:6px; cursor:pointer; margin-bottom:12px;
+  }
+  .refresh-btn:hover{border-color:var(--amber); color:var(--amber);}
+  .log-line{font-size:11.5px; color:var(--muted); font-family:ui-monospace,'SF Mono',monospace; margin-top:14px; white-space:pre-wrap; word-break:break-all;}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+
+<header>
+  <div class="brand">
+    <div class="mark"></div>
+    <div>
+      <h1>Checkpoint</h1>
+      <p>Rider &amp; package verification console</p>
+    </div>
+  </div>
+  <div class="status-pill"><span class="dot" id="statusDot"></span><span id="statusText">not connected</span></div>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>01 · Submit image</h2>
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" accept="image/*">
+      <div class="icon">&#8613;</div>
+      <div>Drop a delivery photo here, or click to browse</div>
+      <div class="hint">Rider gear or package condition — JPG / PNG</div>
+    </div>
+    <div class="preview-wrap" id="previewWrap">
+      <img id="previewImg" alt="preview">
+      <canvas id="overlay"></canvas>
+    </div>
+
+    <div class="fields">
+      <div class="field">
+        <label>Rider ID</label>
+        <input type="text" id="riderId" placeholder="e.g. RD-4471">
+      </div>
+      <div class="field">
+        <label>Order ID</label>
+        <input type="text" id="orderId" placeholder="e.g. ORD-88213">
+      </div>
+      <div class="field full">
+        <label>API base URL</label>
+        <input type="text" id="apiUrl" value="">
+      </div>
+    </div>
+
+    <button class="run-btn" id="runBtn" disabled>Run verification</button>
+    <div class="log-line" id="logLine"></div>
+  </section>
+
+  <section class="panel">
+    <h2>02 · Result</h2>
+    <div id="resultArea">
+      <div class="empty">Submit an image to see the compliance verdict and detected classes here.</div>
+    </div>
+  </section>
+
+  <section class="panel" style="grid-column:1/-1;">
+    <h2>03 · History</h2>
+    <div id="historyArea">
+      <div class="empty">No checks logged yet in this session.</div>
+    </div>
+  </section>
+</main>
+
+<script>
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const previewWrap = document.getElementById('previewWrap');
+const previewImg = document.getElementById('previewImg');
+const overlay = document.getElementById('overlay');
+const runBtn = document.getElementById('runBtn');
+const resultArea = document.getElementById('resultArea');
+const apiUrlInput = document.getElementById('apiUrl');
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const logLine = document.getElementById('logLine');
+
+let currentFile = null;
+const FAIL_CLASSES = new Set(['no_helmet', 'package_damaged']);
+
+// If this page is being served by the FastAPI app itself (http://host:port/),
+// default to same-origin so no manual config is needed. If opened as a
+// local file (file://) fall back to the usual local dev port.
+apiUrlInput.value = (location.protocol === 'http:' || location.protocol === 'https:')
+  ? location.origin
+  : 'http://localhost:8000';
+
+function apiBase(){
+  return apiUrlInput.value.replace(/\/+$/, '');
+}
+
+['dragover','dragenter'].forEach(evt =>
+  dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('drag'); })
+);
+['dragleave','drop'].forEach(evt =>
+  dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('drag'); })
+);
+dropzone.addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0];
+  if (f) loadFile(f);
+});
+dropzone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) loadFile(e.target.files[0]);
+});
+
+function loadFile(file){
+  currentFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    previewImg.src = e.target.result;
+    previewWrap.classList.add('show');
+    runBtn.disabled = false;
+    clearOverlay();
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearOverlay(){
+  const ctx = overlay.getContext('2d');
+  overlay.width = previewImg.clientWidth;
+  overlay.height = previewImg.clientHeight;
+  ctx.clearRect(0,0,overlay.width, overlay.height);
+}
+
+function drawBoxes(detections, naturalW, naturalH){
+  const ctx = overlay.getContext('2d');
+  overlay.width = previewImg.clientWidth;
+  overlay.height = previewImg.clientHeight;
+  const scaleX = overlay.width / naturalW;
+  const scaleY = overlay.height / naturalH;
+  ctx.clearRect(0,0,overlay.width, overlay.height);
+  detections.forEach(d => {
+    const [x1,y1,x2,y2] = d.box;
+    const fail = FAIL_CLASSES.has(d.cls);
+    ctx.strokeStyle = fail ? '#ff5c5c' : '#4fd48c';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x1*scaleX, y1*scaleY, (x2-x1)*scaleX, (y2-y1)*scaleY);
+    ctx.fillStyle = fail ? '#ff5c5c' : '#4fd48c';
+    ctx.font = '11px monospace';
+    ctx.fillText(`${d.cls} ${(d.confidence*100).toFixed(0)}%`, x1*scaleX + 3, y1*scaleY - 5);
+  });
+}
+
+runBtn.addEventListener('click', async () => {
+  if (!currentFile) return;
+  runBtn.disabled = true;
+  runBtn.textContent = 'Analyzing…';
+  logLine.textContent = '';
+  statusDot.classList.remove('live');
+  statusText.textContent = 'contacting API…';
+
+  const form = new FormData();
+  form.append('file', currentFile);
+  form.append('rider_id', document.getElementById('riderId').value);
+  form.append('order_id', document.getElementById('orderId').value);
+
+  try {
+    const res = await fetch(`${apiBase()}/detect`, { method: 'POST', body: form });
+    if (!res.ok) throw new Error(`API responded ${res.status}`);
+    const data = await res.json();
+    statusDot.classList.add('live');
+    statusText.textContent = 'connected';
+    renderResult(data);
+    loadHistory();
+  } catch (err) {
+    statusDot.classList.remove('live');
+    statusText.textContent = 'connection failed';
+    logLine.textContent = `Error: ${err.message}\nCheck that the FastAPI service is running and the API base URL above is correct.`;
+    resultArea.innerHTML = `<div class="empty">Could not reach the detection API.<br>Start it with: <code>uvicorn app.main:app --reload</code></div>`;
+  } finally {
+    runBtn.disabled = false;
+    runBtn.textContent = 'Run verification';
+  }
+});
+
+async function loadHistory(){
+  const historyArea = document.getElementById('historyArea');
+  try {
+    const res = await fetch(`${apiBase()}/logs?limit=25`);
+    if (!res.ok) throw new Error(`API responded ${res.status}`);
+    const data = await res.json();
+    const rows = data.rows || [];
+    if (!rows.length){
+      historyArea.innerHTML = `<div class="empty">No checks logged yet. Run a verification above to populate this table.</div>`;
+      return;
+    }
+    historyArea.innerHTML = `
+      <button class="refresh-btn" onclick="loadHistory()">&#8635; Refresh</button>
+      <table class="hist">
+        <thead><tr><th>Time (UTC)</th><th>Rider</th><th>Order</th><th>Result</th><th>Detected</th></tr></thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr>
+              <td>${new Date(r.timestamp).toLocaleString()}</td>
+              <td>${r.rider_id || '—'}</td>
+              <td>${r.order_id || '—'}</td>
+              <td><span class="tag ${r.compliant === 'True' ? 'pass' : 'fail'}">${r.compliant === 'True' ? 'Pass' : 'Fail'}</span></td>
+              <td>${r.classes || '—'}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) {
+    historyArea.innerHTML = `<div class="empty">Couldn't load history: ${err.message}</div>`;
+  }
+}
+
+loadHistory();
+
+function renderResult(data){
+  const compliant = data.compliant;
+  const dets = data.detections || [];
+
+  const img = new Image();
+  img.onload = () => drawBoxes(dets, img.naturalWidth, img.naturalHeight);
+  img.src = previewImg.src;
+
+  let rows = dets.length
+    ? dets.map(d => {
+        const fail = FAIL_CLASSES.has(d.cls);
+        return `<div class="det-row">
+          <div class="cls"><span class="swatch" style="background:${fail ? '#ff5c5c' : '#4fd48c'}"></span>${d.cls}</div>
+          <div class="conf">${(d.confidence*100).toFixed(1)}%</div>
+        </div>`;
+      }).join('')
+    : `<div class="empty">No objects detected above the confidence threshold.</div>`;
+
+  resultArea.innerHTML = `
+    <div class="verdict ${compliant ? 'pass' : 'fail'}">
+      <div class="badge">${compliant ? '&#10003;' : '&#33;'}</div>
+      <div>
+        <div class="label">${compliant ? 'Compliant' : 'Flagged for review'}</div>
+        <div class="sub">${data.rider_id ? 'Rider ' + data.rider_id : ''}${data.order_id ? ' · Order ' + data.order_id : ''}</div>
+      </div>
+    </div>
+    ${rows}
+  `;
+}
+</script>
+</body>
+</html>

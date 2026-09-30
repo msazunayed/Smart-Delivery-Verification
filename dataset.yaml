@@ -1,0 +1,12 @@
+# YOLOv8 dataset config template.
+# Point train/val at your labeled image folders (Roboflow/LabelImg export in YOLO format).
+
+path: ./data          # dataset root
+train: images/train    # relative to 'path'
+val: images/val
+
+names:
+  0: helmet
+  1: no_helmet
+  2: package_ok
+  3: package_damaged

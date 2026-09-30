@@ -1,0 +1,84 @@
+{
+  "name": "Smart Delivery Verification",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "delivery-check",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "Webhook - Receive Image",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/detect",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "rider_id", "value": "={{$json.body.rider_id}}" },
+            { "name": "order_id", "value": "={{$json.body.order_id}}" }
+          ]
+        },
+        "options": {}
+      },
+      "name": "HTTP Request - YOLO Detect",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            { "value1": "={{$json.compliant}}", "value2": false }
+          ]
+        }
+      },
+      "name": "IF - Failed Compliance",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_CHAT_ID",
+        "text": "=Compliance FAILED for rider {{$json.rider_id}}, order {{$json.order_id}}. Detected: {{$json.detections}}"
+      },
+      "name": "Telegram - Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [960, 200]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "sheetId": "REPLACE_WITH_SHEET_ID",
+        "range": "A:E"
+      },
+      "name": "Google Sheets - Log Result",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [960, 400]
+    }
+  ],
+  "connections": {
+    "Webhook - Receive Image": {
+      "main": [[{ "node": "HTTP Request - YOLO Detect", "type": "main", "index": 0 }]]
+    },
+    "HTTP Request - YOLO Detect": {
+      "main": [[{ "node": "IF - Failed Compliance", "type": "main", "index": 0 }]]
+    },
+    "IF - Failed Compliance": {
+      "main": [
+        [{ "node": "Telegram - Alert", "type": "main", "index": 0 }],
+        [{ "node": "Google Sheets - Log Result", "type": "main", "index": 0 }]
+      ]
+    }
+  }
+}
